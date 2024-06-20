@@ -1,7 +1,89 @@
 ---
-title: "."
+title: "Bachelor's Degree Holders in Los Angeles"
 ---
 
-This is a Quarto website.
+```{r}
+#| label: setup
+#| message: false
+#| echo: false
+#| output: false
+library(tidyverse)
+library(tidycensus)
+library(tibble)
+library(leaflet)
+```
 
-To learn more about Quarto websites visit <https://quarto.org/docs/websites>.
+```{r}
+#| label: degree_tibble
+#| output: false
+#| echo: false
+variables <- c(bachelors = "B15003_022", total = "B15003_001")
+la_tracts <- get_acs(geography = "tract",
+                     variables = variables,
+                     state = "CA",
+                     county = "Los Angeles",
+                     year = 2021,
+                     survey = "acs5",
+                     output = "wide"
+                     )
+la_tracts <- la_tracts %>%
+  mutate(percentage_bachelors = (bachelorsE / totalE) * 100)
+head(la_tracts)
+```
+
+```{r}
+#| label: degree_leaflet
+#| output: false
+#| echo: false 
+
+tracts <- tigris::tracts(state = "CA", county = "Los Angeles", cb = TRUE)
+
+x <- la_tracts %>%
+  mutate(GEOID = as.character(GEOID))
+
+tracts_data <- left_join(tracts, x, by = "GEOID")
+
+pal <- colorNumeric(
+  palette = "viridis",
+  domain = tracts_data$percentage_bachelors
+)
+
+map <- leaflet(data = tracts_data) %>%
+  addTiles() %>%
+  addPolygons(
+    fillColor = ~pal(percentage_bachelors),
+    weight = 1,
+    opacity = 1,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.7,
+highlightOptions = highlightOptions(
+      weight = 5,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE
+    ),
+   label = ~paste0(NAME.x, ": ", round(percentage_bachelors, 1), "%"),
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto"
+    )
+  ) %>%
+  addLegend(
+    pal = pal,
+    values = ~percentage_bachelors,
+    opacity = 0.7,
+    title = "Percentage with Bachelor's Degrees",
+    position = "bottomright"
+  )
+
+```
+
+```{r}
+#| echo: false
+map
+```
+
+
